@@ -46,7 +46,7 @@ jobs:
           container-name: express-app
           image: ${{ steps.build-image.outputs.image }}
       - name: Deploy Amazon ECS task Definition
-        uses: aws-actions/amazon-ecs-deplo-task-definition@v1
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
         with:
           task-definition: ${{ steps.task-def.outputs.task-definition }}
           service: express-service-devops
