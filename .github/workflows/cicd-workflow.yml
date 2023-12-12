@@ -1,0 +1,63 @@
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: CICD Workflow
+
+on:
+  push:
+    branches: [deploy-to-ecs]
+
+jobs:
+  build-and-deploy:
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v3
+      - name: Configure AWS credentianal
+        uses: aws-actions/configure-aws-credentials@v3
+        with: 
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: 'us-east-1'
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with: 
+          mask-password: 'true'
+
+      - name: Build, Tag and Push image to ECR
+        id: build-image
+        env: 
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: latest
+          ECR_REPOSITORY: express-app
+        run: |
+          #Build a docker container
+          # Push it to ECR
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Fill in the new Image ID in the Amazon ECS task Definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: securedoc.json
+          container-name: express-app
+          image: ${{ steps.build-image.outputs.image }}
+      - name: Deploy Amazon ECS task Definition
+        uses: aws-actions/amazon-ecs-deplo-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: express-service-devops
+          cluster: expressDev
+          wait-for-service-stability: true
+          
+          
+          
+        
+      
+        
+        
+      
+    
